@@ -133,14 +133,39 @@ class Pipe:
             return True
         
         return False
+
+class Base:
+    #The bottom image should also be moving
+    VEL = 5
+    WIDTH = BASE_IMG.get_width()
+    IMG = BASE_IMG
+    
+    def __init__(self, y):
+        self.y = y
+        self.x1 = 0
+        self.x2 = self.WIDTH
+           
+    def move(self): #Moves 2 different images to give the illusion of one base moving continuously
+        self.x1 -= self.VEL
+        self.x2 -= self.VEL
         
+        if self.x1 + self.WIDTH < 0: #Resets cycle of image if x1 moves offscreen
+            self.x1 = self.x2 + self.WIDTH
+            
+        if self.x2 + self.WIDTH < 0: #Resets cycle of image if x2 moves offscreen
+            self.x2 = self.x1 + self.WIDTH
+ 
+    def draw(self, win):
+        win.blit(self.IMG, (self.x1, self.y))
+        win.blit(self.IMG, (self.x1, self.y))
+ 
 def draw_window(win, bird):
-    win.blit(BG_IMG, (0,0))
+    win.blit(BG_IMG, (0,0)) #Position of background image
     bird.draw(win)
     pygame.display.update()
 
 def main():
-    bird = Bird(200, 200)
+    bird = Bird(200, 200) #Position of bird on screen
     win = pygame.display.set_mode((WIN_WIDTH, WIN_HEIGHT))
     clock = pygame.time.Clock()
     
@@ -148,12 +173,15 @@ def main():
     
     while run:
         clock.tick(30)
+        
+        #Check for exit
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 run = False
         bird.move()
         draw_window(win, bird)
     
+    #Exit the game
     pygame.quit()          
     quit()
     
