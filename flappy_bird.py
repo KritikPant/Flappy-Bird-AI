@@ -162,7 +162,7 @@ class Base:
         win.blit(self.IMG, (self.x1, self.y))
         win.blit(self.IMG, (self.x2, self.y))
  
-def draw_window(win, birds, pipes, base, score, gen):
+def draw_window(win, birds, pipes, base, score, gen, pipe_ind):
     win.blit(BG_IMG, (0,0)) #Position of background image
     
     for pipe in pipes:
@@ -272,7 +272,7 @@ def main(genomes, config):
                 ge.pop(x)
                 
         base.move()
-        draw_window(win, birds, pipes, base, score, GEN)
+        draw_window(win, birds, pipes, base, score, GEN, pipe_ind)
     
 
 
