@@ -7,12 +7,12 @@ pygame.font.init()
 
 WIN_WIDTH = 500
 WIN_HEIGHT = 800
-
+GEN = 0
 BIRD_IMGS = [pygame.transform.scale2x(pygame.image.load(os.path.join("Images", "bird1.png"))), pygame.transform.scale2x(pygame.image.load(os.path.join("Images", "bird2.png"))), pygame.transform.scale2x(pygame.image.load(os.path.join("Images", "bird3.png")))]
 PIPE_IMG = pygame.transform.scale2x(pygame.image.load(os.path.join("Images", "pipe.png")))
 BG_IMG = pygame.transform.scale2x(pygame.image.load(os.path.join("Images", "bg.png")))
 BASE_IMG = pygame.transform.scale2x(pygame.image.load(os.path.join("Images", "base.png")))
-
+DRAW_LINES = True
 STAT_FONT = pygame.font.SysFont("comicsans", 50)
 
 class Bird:
@@ -49,7 +49,7 @@ class Bird:
         if d < 0:
             d -= 2
         
-        #Moves the bird in the y direction    
+        #Moves the bird in the y direction
         self.y = self.y + d
         
         #Check movement direction in order to tilt the bird
@@ -162,29 +162,41 @@ class Base:
         win.blit(self.IMG, (self.x1, self.y))
         win.blit(self.IMG, (self.x2, self.y))
  
-def draw_window(win, bird, pipes, base, score):
+def draw_window(win, birds, pipes, base, score, gen):
     win.blit(BG_IMG, (0,0)) #Position of background image
     
     for pipe in pipes:
         pipe.draw(win)
+
+    for bird in birds:
+        if DRAW_LINES:
+            try:
+                pygame.draw.line(win, (255,0,0), (bird.x+bird.img.get_width()/2, bird.y + bird.img.get_height()/2), (pipes[pipe_ind].x + pipes[pipe_ind].PIPE_TOP.get_width()/2, pipes[pipe_ind].height), 5)
+                pygame.draw.line(win, (255,0,0), (bird.x+bird.img.get_width()/2, bird.y + bird.img.get_height()/2), (pipes[pipe_ind].x + pipes[pipe_ind].PIPE_BOTTOM.get_width()/2, pipes[pipe_ind].bottom), 5)
+            except:
+                pass
+        bird.draw(win)
         
     base.draw(win)
     
     text = STAT_FONT.render("SCORE: " + str(score), 1, (255,255,255))
     win.blit(text, (WIN_WIDTH - 10 - text.get_width(), 10))
     
-    bird.draw(win)
-    
+    text = STAT_FONT.render("GEN: " + str(gen), 1, (255,255,255))
+    win.blit(text, (10,10))
+        
     pygame.display.update()
 
 def main(genomes, config):
+    global GEN
+    GEN += 1
     nets = []
     ge = []
     birds = []
     
     #Setting up neural network
-    for g in genomes:
-        net = neat.nn.FeedForwardNetwork(g, config)
+    for _, g in genomes: #Genomes is a tuple so we only loop through object
+        net = neat.nn.FeedForwardNetwork.create(g, config)
         nets.append(net)
         birds.append(Bird(230, 350))
         g.fitness = 0
@@ -199,17 +211,36 @@ def main(genomes, config):
     
     run = True    
     while run:
-        clock.tick(30)        
+        clock.tick(30)
         #Check for exit
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 run = False
+                #Exit the game
+                pygame.quit()
+                quit()
+                
+        pipe_ind = 0
+        if len(birds) > 0:
+            if len(pipes) > 1 and birds[0].x > pipes[0].x + pipes[0].PIPE_TOP.get_width():
+                pipe_ind = 1 #This way we can track which pipe the bird is approaching and feed the inputs to the neural network accordingly
+        else:
+            break
+        
+        for x, bird in enumerate(birds): #Jumps the bird if the output of the neural network is > 0.5
+            bird.move()
+            ge[x].fitness += 0.1 #Adds fitness to the bird to encourage it moving forward
+            #Activate the neural network with inputs
+            output = nets[x].activate((bird.y, abs(bird.y - pipes[pipe_ind].height), abs(bird.y - pipes[pipe_ind].bottom)))
+            
+            if output[0] > 0.5:
+                bird.jump()
                 
         #bird.move()
         add_pipe = False
         rem = [] #Can't remove pipe directly from for loop
         for pipe in pipes:
-            for x, bird in enumerate(birds): #To get position of bird in list as well           
+            for x, bird in enumerate(birds): #To get position of bird in list as well
                 if pipe.collide(bird):
                     ge[x].fitness -= 1 #Favours birds which don't hit the pipe
                     birds.pop(x)
@@ -233,21 +264,18 @@ def main(genomes, config):
         for r in rem:
             pipes.remove(r)
         
-        for x, bird in enumerate(birds):          
+        for x, bird in enumerate(birds):
             #Check for loss
-            if bird.y + bird.img.get_height() > 730:
+            if bird.y + bird.img.get_height() >= 730 or bird.y < 0:
                 birds.pop(x)
                 nets.pop(x)
                 ge.pop(x)
                 
         base.move()
-        draw_window(win, bird, pipes, base, score)
+        draw_window(win, birds, pipes, base, score, GEN)
     
-    #Exit the game
-    pygame.quit()          
-    quit()
-    
-main()
+
+
 
 def run(config_path):
     config = neat.config.Config(neat.DefaultGenome, neat.DefaultReproduction, neat.DefaultSpeciesSet, neat.DefaultStagnation, config_path)
